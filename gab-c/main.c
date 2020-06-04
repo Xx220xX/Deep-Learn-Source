@@ -1,4 +1,6 @@
 #include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
 #include "gabriela.h"
 
 void printV(const char *m, double *v, int s) {
@@ -10,31 +12,36 @@ void printV(const char *m, double *v, int s) {
     printf("\n");
 }
 
-int main() {
+int main(int nargs,char **args) {
+
+    int max_epocas = 10;
+    if(nargs>1){
+	max_epocas = atoi(args[1]);
+	if(max_epocas <1){
+		printf("FALHA\n");
+		max_epocas = 10;
+	}
+
+	printf("mudando max_epocas para %d\n",max_epocas);
+    }
     int arq[] = {2, 3, 1};
+    setSeed(time(0));
     DNN d = newDnn(arq, sizeof(arq) / sizeof(int), 0.1);
-//    printW(d,1);
-    setSeed(1LL);
     randomize(d);
-//    printW(d,1);
-    double inp[4][2] = {{1.0, 1.0},
-                        {1.0, 0},
-                        {0,   1.0},
-                        {0,   0},};
+
+    double inp[4][2] = {{1.0, 1.0},{1.0, 0},{0,   1.0},{0,   0},};
     double target[4][1] = {0};
     int i, j;
+    unsigned int v0,v1;
     for (i = 0; i < 4; ++i) {
-        printf("[%lf %lf]\n", inp[i][0], inp[i][1]);
-    }
-    for (i = 0; i < 4; ++i) {
-        unsigned int v0 = inp[i][0], v1 = inp[i][1];
+        v0 = inp[i][0], v1 = inp[i][1];
         target[i][0] = v0 ^ v1;
     }
     double out[1];
     double  energia;
-    for (i = 0; i < 1; ++i) {
+    for (i = 0; i < max_epocas; ++i) {
         energia = 0;
-        for (j = 0; j < 1; ++j) {
+        for (j = 0; j < 4; ++j) {
             call(d, inp[j]);
             getOut(d, out);
             energia += (out[0] - target[j][0])*(out[0] - target[j][0]);
@@ -42,10 +49,10 @@ int main() {
             learn(d, target[j]);
         }
         energia/=2.0;
-        printf("%lf\n",energia);
+        printf("epoca %d energia  %lf\n",i+1,energia);
 //       printf("\n\n\n");
     }
-    printf("okay all\n");
     releaseDNN(d);
+    system("pause");
     return 0;
 }

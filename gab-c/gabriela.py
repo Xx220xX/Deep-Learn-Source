@@ -36,6 +36,7 @@ class DNN:
         cvector = c.c_int * size_arch
         architecture = cvector(*architecture)
         self.p = wrapper_c.newDnn(architecture, size_arch, hit_learn)
+        wrapper_c.randomize(self.p)
 
     def __call__(self, input):
         wrapper_c.call(self.p, self.vector_input(*input))

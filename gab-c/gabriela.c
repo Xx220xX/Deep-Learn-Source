@@ -11,7 +11,6 @@
 typedef struct _Mat {
     int m, n;
     REAL *v;
-    char name[12];
 } *Mat;
 
 #define M_ij(m, i, j)m->v[i*m->n+j]
@@ -50,27 +49,6 @@ DNN newDnn(int *arquitetura, int la, double hitLearn) {
     return d;
 }
 
-void printDNN(FILE *f, DNN d) {
-    int i;
-    fprintf(f, "Arquiterura: (");
-    for (i = 0; i <= d->L; i++) {
-        fprintf(f, "%d", d->arq[i]);
-        if (i < d->L)fprintf(f, " ");
-    }
-    fprintf(f, ")\n");
-    fprintf(f, "camada de entrada\n a_0 %dx%d\n", d->a[0]->m, d->a[0]->n);
-    for (i = 1; i < d->L; i++) {
-        fprintf(f, "\ncamada %d\n", i);
-        fprintf(f, "\t%s: %dx%d\n", d->w[i]->name, d->w[i]->m, d->w[i]->n);
-        fprintf(f, "\t%s: %dx%d\n", d->b[i]->name, d->b[i]->m, d->b[i]->n);
-        fprintf(f, "\t%s: %dx%d\n", d->z[i]->name, d->z[i]->m, d->z[i]->n);
-        fprintf(f, "\t%s: %dx%d\n", d->a[i]->name, d->a[i]->m, d->a[i]->n);
-        fprintf(f, "\t%s: %dx%d\n", d->dz[i]->name, d->dz[i]->m, d->dz[i]->n);
-        fprintf(f, "\t%s: %dx%d\n", d->dw[i]->name, d->dw[i]->m, d->dw[i]->n);
-    }
-
-}
-
 int releaseDNN(DNN d) {
     int l;
     if (d) {
@@ -98,18 +76,6 @@ int releaseDNN(DNN d) {
 }
 
 
-void printM(FILE *f, Mat mat, char *fmt,char *seplin, char *end) {
-    fprintf(f, "%% %dx%d:\n%s = [", mat->m, mat->n, mat->name);
-    int i, j;
-    for (i = 0; i < mat->m; ++i) {
-        for (j = 0; j < mat->n; ++j) {
-            fprintf(f, fmt, mat->v[i * mat->n + j]);
-        }
-        if (i + 1 < mat->m)
-            fprintf(f, "%s",seplin);
-    }
-    fprintf(f, "]%s", end);
-}
 
 int call(DNN dnn, double *inp) {
     int i = 0, j, l;
@@ -137,8 +103,6 @@ int call(DNN dnn, double *inp) {
 
 
 int learn(DNN dnn, double *inp) {
-    FILE *f = fopen("../oc.m","w");
-    fprintf(f,"clc\nclear all\ndisp('LEARN');\n");
     // vars
     int i, j, L, l;
     Mat al_, al, dwl, dwl_u, dzl, dzl_u, wl_u, zl, bl;
@@ -158,18 +122,12 @@ int learn(DNN dnn, double *inp) {
     }
 
     // dwL = dzl*al_t
-    fprintf(f,"disp('');\ndisp('dwL = dzl*al_t')\n");
     dwl = dnn->dw[L];
     al_ = dnn->a[L - 1];
     for (i = 0; i < dzl->m; ++i) {
         for (j = 0; j < al_->m; ++j)
             M_ij(dwl, i, j) = M_i(dzl, i) * M_i(al_, j);
     }
-    printM(f,dzl,"%lf ",";","\n");
-    printM(f,al_,"%lf ",";","\n");
-    printM(f,dwl,"%lf ",";","\n");
-    fprintf(f,"oct = %s*(%s')\n",dzl->name,al_->name);
-
     for (l = L - 1; l >= 1; l--) {
         dzl = dnn->dz[l];
         wl_u = dnn->w[l + 1];
@@ -177,7 +135,6 @@ int learn(DNN dnn, double *inp) {
         zl = dnn->z[l];
         dwl_u = dnn->dw[l + 1];
         // dzl = wl+t * dzl+  ** df(zl)
-        fprintf(f,"disp('');\ndisp('dzl = wl+t * dzl+  ** df(zl)')\n");
         for (i = 0; i < wl_u->n; ++i) {
             tmp = 0;
             for (j = 0; j < dzl_u->m; ++j) {
@@ -187,13 +144,6 @@ int learn(DNN dnn, double *inp) {
             tmp = tmp * deriva(dnn->functionID, M_i(zl, i));
             M_i(dzl, i) = tmp;
         }
-        printM(f,wl_u,"%lf ",";",";\n");
-        printM(f,dzl_u,"%lf ",";",";\n");
-        printM(f,zl,"%lf ",";",";\n");
-        printM(f,dzl,"%lf ",";","\n");
-        fprintf(f,"oct = ((%s') * %s) .* (1.0 ./ (cosh(%s).*cosh(%s)))\n\n",wl_u->name,dzl_u->name,zl->name,zl->name);
-        fprintf(f,"disp('_______');\n");
-
         // dwL = dzl*al_t
         dwl = dnn->dw[l];
         al_ = dnn->a[l - 1];
@@ -204,12 +154,11 @@ int learn(DNN dnn, double *inp) {
     }
 
     wl_u = dnn->w[1];
-    dwl = dnn->w[1];
+    dwl = dnn->dw[1];
 
     for (i = 0; i < dwl->m * dwl->n; ++i) {
         M_i(wl_u, i) = M_i(wl_u, i) - hl * M_i(dwl, i);
     }
-    fclose(f);
     return 0;
 }
 
@@ -269,10 +218,6 @@ int releaseMat(Mat mat) {
     return 0;
 }
 
-#define MNAME(M, nameM, l)\
-    snprintf(nm,12,"%s_%d",nameM,l);\
-    memcpy(M->name,nm,12)
-
 int createMatrix(DNN dnn) {
     int l;
     char nm[12] = {0};
@@ -283,7 +228,7 @@ int createMatrix(DNN dnn) {
     dnn->dw = (pMat) calloc(dnn->L + 1, sizeof(Mat));
     dnn->dz = (pMat) calloc(dnn->L + 1, sizeof(Mat));
     dnn->a[0] = newMat(dnn->arq[0], 1);
-    MNAME(dnn->a[0], "a", 0);
+
     for (l = 1; l <= dnn->L; ++l) {
         dnn->w[l] = newMat(dnn->arq[l], dnn->arq[l - 1]);
         dnn->a[l] = newMat(dnn->arq[l], 1);
@@ -292,12 +237,6 @@ int createMatrix(DNN dnn) {
         dnn->dz[l] = newMat(dnn->arq[l], 1);
         dnn->dw[l] = newMat(dnn->arq[l], dnn->arq[l - 1]);
 
-        MNAME(dnn->w[l], "w", l);
-        MNAME(dnn->a[l], "a", l);
-        MNAME(dnn->b[l], "b", l);
-        MNAME(dnn->z[l], "z", l);
-        MNAME(dnn->dz[l], "dz", l);
-        MNAME(dnn->dw[l], "dw", l);
     }
     return 0;
 }
